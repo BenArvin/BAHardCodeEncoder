@@ -37,9 +37,12 @@ Exception_File_Names = ['NSString+BAHCCategory.h',
 						'GTMBase64.m',
 						'GTMDefines.h']
 Exception_File_Prefix = []
-Exception_File_Suffix = []
+Exception_File_Suffix = ['\.a', '\.framework']
 
-Exception_Folder_Names = []
+Exception_Folder_Names = ['node_modules',
+                          '.idea',
+                          '.git',
+                          'Pods']
 Exception_Folder_Prefix = []
 Exception_Folder_Suffix = []
 
@@ -139,7 +142,7 @@ class BAHardCodeEncoder:
 		else:
 			if os.path.isdir(path) == True:
 				return True
-			if re.match('^(.)+.(h|m|pch)', name, re.S) == None:
+			if re.match('^(.)+\\.(h|m|pch)', name, re.S) == None:
 				return True
 			if name in Exception_File_Names:
 				return True
@@ -158,9 +161,9 @@ class BAHardCodeEncoder:
 		if fileHandler == None:
 			return
 		fileContent = fileHandler.read()
-		results = re.finditer('@"(.)*?"', fileContent)
 		fileHandler.close()
 
+		results = re.finditer('@"(.)*?"', fileContent)
 		needRewrite = False
 		newFileContent = ''
 		indexStart = 0
@@ -179,7 +182,7 @@ class BAHardCodeEncoder:
 				continue
 
 			#get new key and new value
-			key = 'BAHCKey' + hashlib.md5(('NEW_NAME_FOR_' + trueContent + '_OF_' + filePath).encode(encoding='UTF-8')).hexdigest()
+			key = 'BAHCKey' + hashlib.md5(('NEW_NAME_FOR_' + trueContent + '_OF_' + filePath + '_AT_' + str(resultStart) + ':' + str(resultEnd)).encode(encoding='UTF-8')).hexdigest()
 			value = self.encrypt(trueContent)
 
 			#write defenition
