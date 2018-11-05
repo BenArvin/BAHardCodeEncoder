@@ -1,6 +1,6 @@
 # BAHardCodeEncoder
 
-Encode all hard code string in project.
+Encode all hard code string in objective-c project.
 
 Exceptions support:
 

@@ -2,14 +2,16 @@
 # -*- coding: UTF-8 -*-
 
 instructions = '''
+Encode all hard code string in objective-c project.
+
 How to use:
 1. pip install pycrypto
-2. put files in /oc-class into xCode project
+2. put files in /oc-class into project
 3. edit key & iv for encrypt and decrypt action in this script and NSString+BAHCCategory.h
 4. edit exception settings in this script: file name, file prefix, file suffix, folder name, folder prefix, folder suffix, string format specifiers
 5. run script by command: python param1 param2
 	param1: path of this script
-	param2: root path of xCode project
+	param2: root path of project
 6. import NSString+BAHCCategory.h and BAHCDefenitions.h globally
 
 PS:
