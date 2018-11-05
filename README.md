@@ -13,3 +13,5 @@ Exceptions support:
 - string format specifiers: %@, %d...
 
 For more inforamtion and user guide, use command `python BAHardCodeEncoder.py --help`
+
+GitHub Link: [https://github.com/BenArvin/BAHardCodeEncoder](https://github.com/BenArvin/BAHardCodeEncoder)
