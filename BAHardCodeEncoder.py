@@ -60,6 +60,7 @@ sys.setdefaultencoding("utf-8")
 
 class BAHardCodeEncoder:
 
+	ProjectRootPath = ''
 	BAHCDefenitionsFileName = 'BAHCDefenitions.h'
 	BAHCDefenitionsFilePath = ''
 	GlobalFileHandler = None
@@ -86,7 +87,7 @@ class BAHardCodeEncoder:
 				self.RegPatternFolderPrefix = self.RegPatternFolderPrefix + Exception_Folder_Prefix[i]
 				if i != folderPrefixCount - 1:
 					self.RegPatternFolderPrefix = self.RegPatternFolderPrefix + '|'
-			self.RegPatternFolderPrefix = self.RegPatternFolderPrefix + ')(.)*'
+			self.RegPatternFolderPrefix = self.RegPatternFolderPrefix + ')(.)*$'
 
 		folderSuffixCount = len(Exception_Folder_Suffix)
 		if folderPrefixCount > 0 :
@@ -95,7 +96,7 @@ class BAHardCodeEncoder:
 				self.RegPatternFolderSuffix = self.RegPatternFolderSuffix + Exception_Folder_Suffix[i]
 				if i != folderSuffixCount - 1:
 					self.RegPatternFolderSuffix = self.RegPatternFolderSuffix + '|'
-			self.RegPatternFolderSuffix = self.RegPatternFolderSuffix + ')'
+			self.RegPatternFolderSuffix = self.RegPatternFolderSuffix + ')$'
 
 		filePrefixCount = len(Exception_File_Prefix)
 		if filePrefixCount > 0 :
@@ -104,7 +105,7 @@ class BAHardCodeEncoder:
 				self.RegPatternFilePrefix = self.RegPatternFilePrefix + Exception_File_Prefix[i]
 				if i != filePrefixCount - 1:
 					self.RegPatternFilePrefix = self.RegPatternFilePrefix + '|'
-			self.RegPatternFilePrefix = self.RegPatternFilePrefix + ')(.)*'
+			self.RegPatternFilePrefix = self.RegPatternFilePrefix + ')(.)*$'
 
 		fileSuffixCount = len(Exception_File_Suffix)
 		if fileSuffixCount > 0 :
@@ -113,7 +114,7 @@ class BAHardCodeEncoder:
 				self.RegPatternFileSuffix = self.RegPatternFileSuffix + Exception_File_Suffix[i]
 				if i != fileSuffixCount - 1:
 					self.RegPatternFileSuffix = self.RegPatternFileSuffix + '|'
-			self.RegPatternFileSuffix = self.RegPatternFileSuffix + ')'
+			self.RegPatternFileSuffix = self.RegPatternFileSuffix + ')$'
 
 	def encrypt(self, source):
 		text = source
@@ -142,7 +143,7 @@ class BAHardCodeEncoder:
 		else:
 			if os.path.isdir(path) == True:
 				return True
-			if re.match('^(.)+\\.(h|m|pch)', name, re.S) == None:
+			if re.match('^(.)+\\.(h|m|pch)$', name, re.S) == None:
 				return True
 			if name in Exception_File_Names:
 				return True
@@ -167,6 +168,8 @@ class BAHardCodeEncoder:
 		needRewrite = False
 		newFileContent = ''
 		indexStart = 0
+		relativePath = filePath
+		relativePath = relativePath.replace(self.ProjectRootPath, "/");
 		for result in results:
 			needRewrite = True
 			#get content and contentIndex
@@ -182,7 +185,7 @@ class BAHardCodeEncoder:
 				continue
 
 			#get new key and new value
-			key = 'BAHCKey' + hashlib.md5(('NEW_NAME_FOR_' + trueContent + '_OF_' + filePath + '_AT_' + str(resultStart) + ':' + str(resultEnd)).encode(encoding='UTF-8')).hexdigest()
+			key = 'BAHCKey' + hashlib.md5(('NEW_NAME_FOR_' + trueContent + '_OF_' + relativePath + '_AT_' + str(resultStart) + ':' + str(resultEnd)).encode(encoding='UTF-8')).hexdigest()
 			value = self.encrypt(trueContent)
 
 			#write defenition
@@ -190,7 +193,7 @@ class BAHardCodeEncoder:
 				self.GlobalFileHandler.write('#define ' + key + ' @"' + value + '"\n')
 
 			#print log
-			print('✅ ' + filePath + ' : ' + trueContent + ' -> ' + key + '\n')
+			print('✅ ' + relativePath + '(' + str(resultStart) + ':' + str(resultEnd) + '): ' + trueContent + ' -> ' + key + '\n')
 
 			#replace content in source file
 			newFileContent = newFileContent + fileContent[indexStart: resultStart] + '[' + key + ' BAHC_Decrypt]'
@@ -220,6 +223,9 @@ class BAHardCodeEncoder:
 			print('⚠️ERROR: Project root path None!')
 			return
 
+		self.ProjectRootPath = projectRootPath + '/'
+		self.ProjectRootPath.replace("//", "/");
+
 		#check key and iv length
 		if AES_key == None or AES_iv == None:
 			print("⚠️ERROR: Key and iv for encrypt action can't be null!")
@@ -232,7 +238,7 @@ class BAHardCodeEncoder:
 		self.buildRegPatterns()
 
 		#creat defenition file
-		self.BAHCDefenitionsFilePath = projectRootPath + '/' + self.BAHCDefenitionsFileName
+		self.BAHCDefenitionsFilePath = self.ProjectRootPath + '/' + self.BAHCDefenitionsFileName
 		self.BAHCDefenitionsFilePath.replace("//", "/");
 		if os.path.exists(self.BAHCDefenitionsFilePath):
 			os.remove(self.BAHCDefenitionsFilePath)
@@ -241,7 +247,7 @@ class BAHardCodeEncoder:
 
 		#start analyze
 		self.GlobalFileHandler = open(self.BAHCDefenitionsFilePath, 'w+')
-		self.ergodicPaths('', projectRootPath)
+		self.ergodicPaths('', self.ProjectRootPath)
 		if self.GlobalFileHandler:
 			self.GlobalFileHandler.close()
 
