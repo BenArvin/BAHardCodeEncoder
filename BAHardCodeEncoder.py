@@ -50,6 +50,9 @@ Exception_String_Format_Specifiers = ['%@', '%%', '%d', '%D', '%u', '%U', '%x', 
 										'%o', '%O', '%f', '%e', '%E', '%g', '%G', '%c',
 										'%C', '%s', '%S', '%p', '%a', '%A', '%F']
 
+Escape_Characters_Key = ['\\\n', '\\n', '\\a', '\\b', '\\f', '\\r', '\\t', '\\v', '\\"', '\\0', '\\\\']
+Escape_Characters_Value = ['', '\n', '\a', '\b', '\f', '\r', '\t', '\v', '\"', '', '\\']
+
 #**********************************************************************
 
 
@@ -72,17 +75,8 @@ class BAHardCodeEncoder:
 
 	def convertEscapeCharacter(self, source):
 		result = source
-		result = result.replace('\\\n', '');
-		result = result.replace('\\n', '\n');
-		result = result.replace('\\a', '\a');
-		result = result.replace('\\b', '\b');
-		result = result.replace('\\f', '\f');
-		result = result.replace('\\r', '\r');
-		result = result.replace('\\t', '\t');
-		result = result.replace('\\v', '\v');
-		result = result.replace('\\"', '\"');
-		result = result.replace('\\0', '');
-		result = result.replace('\\\\', '\\');
+		for i in range(len(Escape_Characters_Key)):
+			result = result.replace(Escape_Characters_Key[i], Escape_Characters_Value[i]);
 		return result
 
 	def buildRegPatterns(self):
