@@ -70,6 +70,21 @@ class BAHardCodeEncoder:
 	RegPatternFilePrefix = None
 	RegPatternFileSuffix = None
 
+	def convertEscapeCharacter(self, source):
+		result = source
+		result = result.replace('\\\n', '');
+		result = result.replace('\\n', '\n');
+		result = result.replace('\\a', '\a');
+		result = result.replace('\\b', '\b');
+		result = result.replace('\\f', '\f');
+		result = result.replace('\\r', '\r');
+		result = result.replace('\\t', '\t');
+		result = result.replace('\\v', '\v');
+		result = result.replace('\\"', '\"');
+		result = result.replace('\\0', '');
+		result = result.replace('\\\\', '\\');
+		return result
+
 	def buildRegPatterns(self):
 		specsCount = len(Exception_String_Format_Specifiers)
 		if specsCount > 0 :
@@ -164,7 +179,7 @@ class BAHardCodeEncoder:
 		fileContent = fileHandler.read()
 		fileHandler.close()
 
-		results = re.finditer('@"(.)*?"', fileContent)
+		results = re.finditer('@"(.|(\\\\\n))*?"( |\t|\n)*(\n|;|,)', fileContent)
 		needRewrite = False
 		newFileContent = ''
 		indexStart = 0
@@ -174,8 +189,12 @@ class BAHardCodeEncoder:
 			needRewrite = True
 			#get content and contentIndex
 			resultContent = result.group()
+			stringEndTag = re.finditer('"( |\t|\n)*(\n|;|,)', resultContent)
+			for item in stringEndTag:
+				stringEndTag = item
+				break
 			resultStart = result.start()
-			resultEnd = result.end()
+			resultEnd = stringEndTag.start() + resultStart + 1
 			trueContent = resultContent[2: resultEnd - resultStart - 1]
 
 			#check if need skip
@@ -185,8 +204,9 @@ class BAHardCodeEncoder:
 				continue
 
 			#get new key and new value
+			convertedContent = self.convertEscapeCharacter(trueContent)
 			key = 'BAHCKey' + hashlib.md5(('NEW_NAME_FOR_' + trueContent + '_OF_' + relativePath + '_AT_' + str(resultStart) + ':' + str(resultEnd)).encode(encoding='UTF-8')).hexdigest()
-			value = self.encrypt(trueContent)
+			value = self.encrypt(convertedContent)
 
 			#write defenition
 			if self.GlobalFileHandler:
@@ -224,7 +244,7 @@ class BAHardCodeEncoder:
 			return
 
 		self.ProjectRootPath = projectRootPath + '/'
-		self.ProjectRootPath.replace("//", "/");
+		self.ProjectRootPath = self.ProjectRootPath.replace("//", "/");
 
 		#check key and iv length
 		if AES_key == None or AES_iv == None:
@@ -239,7 +259,7 @@ class BAHardCodeEncoder:
 
 		#creat defenition file
 		self.BAHCDefenitionsFilePath = self.ProjectRootPath + '/' + self.BAHCDefenitionsFileName
-		self.BAHCDefenitionsFilePath.replace("//", "/");
+		self.BAHCDefenitionsFilePath = self.BAHCDefenitionsFilePath.replace("//", "/");
 		if os.path.exists(self.BAHCDefenitionsFilePath):
 			os.remove(self.BAHCDefenitionsFilePath)
 
