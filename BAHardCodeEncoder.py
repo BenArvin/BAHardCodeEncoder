@@ -18,6 +18,7 @@ PS:
    1. length of Key and iv for encrypt action must be a multiple of 16
    2. you must skip these files: NSString+BAHCCategory.h, NSString+BAHCCategory.m, BAHCDefenitions.h, GTMBase64.h, GTMBase64.m, GTMDefines.h
    3. python 2.7 support
+   4. use option: --encrypt/--decrypt to encrypt/decrypt individual content
 '''
 
 #****************  Settings for encrypt & decrypt  ********************
@@ -60,6 +61,36 @@ import sys, os, re, hashlib, base64
 from Crypto.Cipher import AES
 reload(sys)
 sys.setdefaultencoding("utf-8")
+
+def AESEncrypt(source, key, iv):
+	if source == None:
+		return "⚠️ ERROR: Content null!"
+	if key == None or iv == None:
+		return "⚠️ ERROR: Key and iv can't be null!"
+	if len(key) % 16 != 0 or len(iv) % 16 != 0:
+		return '⚠️ ERROR: Length of key and iv must be a multiple of 16!'
+	text = source
+	cryptor = AES.new(key, AES.MODE_CBC, iv)
+	length = 16
+	count = len(text)
+	if count % length != 0:
+		add = (((count // length) + 1) * length - count)
+		text += (chr(add) * add)
+	ciphertext = cryptor.encrypt(text)
+	return base64.b64encode(ciphertext)
+
+def AESDecrypt(source, key, iv):
+	if source == None:
+		return "⚠️ ERROR: Content null!"
+	if key == None or iv == None:
+		return "⚠️ ERROR: Key and iv can't be null!"
+	if len(key) % 16 != 0 or len(iv) % 16 != 0:
+		return '⚠️ ERROR: Length of key and iv must be a multiple of 16!'
+	encrData = base64.b64decode(source)
+	cipher = AES.new(key, AES.MODE_CBC, iv)
+	decrData = cipher.decrypt(encrData)
+	decrData = decrData[:-ord(decrData[len(decrData)-1:])]
+	return decrData.decode('utf-8')
 
 class BAHardCodeEncoder:
 
@@ -125,17 +156,6 @@ class BAHardCodeEncoder:
 					self.RegPatternFileSuffix = self.RegPatternFileSuffix + '|'
 			self.RegPatternFileSuffix = self.RegPatternFileSuffix + ')$'
 
-	def encrypt(self, source):
-		text = source
-		cryptor = AES.new(AES_key, AES.MODE_CBC, AES_iv)
-		length = 16
-		count = len(text)
-		if count % length != 0:
-			add = (((count // length) + 1) * length - count)
-			text += (chr(add) * add)
-		ciphertext = cryptor.encrypt(text)
-		return base64.b64encode(ciphertext)
-
 	def checkNeedSkip(self, name, path, isDir):
 		if os.path.exists(path) == False:
 			return True
@@ -199,7 +219,7 @@ class BAHardCodeEncoder:
 			#get new key and new value
 			convertedContent = self.convertEscapeCharacter(trueContent)
 			key = 'BAHCKey' + hashlib.md5(('NEW_NAME_FOR_' + trueContent + '_OF_' + relativePath + '_AT_' + str(resultStart) + ':' + str(resultEnd)).encode(encoding='UTF-8')).hexdigest()
-			value = self.encrypt(convertedContent)
+			value = AESEncrypt(convertedContent, AES_key, AES_iv)
 
 			#write defenition
 			if self.GlobalFileHandler:
@@ -236,7 +256,7 @@ class BAHardCodeEncoder:
 
 	def start(self, projectRootPath):
 		if projectRootPath == None:
-			print('⚠️ERROR: Project root path None!')
+			print('⚠️ ERROR: Project root path None!')
 			return
 
 		self.ProjectRootPath = projectRootPath + '/'
@@ -244,10 +264,10 @@ class BAHardCodeEncoder:
 
 		#check key and iv length
 		if AES_key == None or AES_iv == None:
-			print("⚠️ERROR: Key and iv for encrypt action can't be null!")
+			print("⚠️ ERROR: Key and iv for encrypt action can't be null!")
 			return
 		if len(AES_key) % 16 != 0 or len(AES_iv) % 16 != 0:
-			print('⚠️ERROR: Length of Key and iv for encrypt action must be a multiple of 16')
+			print('⚠️ ERROR: Length of key and iv for encrypt action must be a multiple of 16!')
 			return
 
 		#build patterns for reg check
@@ -270,9 +290,25 @@ class BAHardCodeEncoder:
 		print('👌 Finished!\n')
 
 if __name__ == '__main__':
+	if len(sys.argv) < 2:
+		quit()
 	firstParam = sys.argv[1];
 	if firstParam == '--help':
 		print('\033[1;32m' + instructions + '\033[0m');
+		quit();
+
+	if firstParam == '--encrypt':
+		content = raw_input('\033[1;32mContent: \033[0m')
+		key = raw_input('\033[1;32mKey: \033[0m')
+		iv = raw_input('\033[1;32mIV: \033[0m')
+		print(AESEncrypt(content, key, iv))
+		quit();
+
+	if firstParam == '--decrypt':
+		content = raw_input('\033[1;32mContent: \033[0m')
+		key = raw_input('\033[1;32mKey: \033[0m')
+		iv = raw_input('\033[1;32mIV: \033[0m')
+		print(AESDecrypt(content, key, iv))
 		quit();
 
 	projectRootPath = firstParam;
