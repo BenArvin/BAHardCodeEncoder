@@ -180,7 +180,6 @@ class BAHardCodeEncoder:
 		relativePath = filePath
 		relativePath = relativePath.replace(self.ProjectRootPath, "/");
 		for result in results:
-			needRewrite = True
 			#get content and contentIndex
 			resultContent = result.group()
 			stringEndTag = re.finditer('"( |\t|\n)*(\n|;|,)', resultContent)
@@ -212,12 +211,15 @@ class BAHardCodeEncoder:
 			#replace content in source file
 			newFileContent = newFileContent + fileContent[indexStart: resultStart] + '[' + key + ' BAHC_Decrypt]'
 			indexStart = resultEnd
+			needRewrite = True
+
+		newFileContent = newFileContent + fileContent[indexStart: len(fileContent)]
 
 		#write new content into file
 		if needRewrite == True:
-			newFileContent = newFileContent + fileContent[indexStart: len(fileContent)]
-			os.remove(filePath)
 			newFileHandler = open(filePath, 'w')
+			newFileHandler.seek(0)
+			newFileHandler.truncate()
 			newFileHandler.write(newFileContent)
 			newFileHandler.close()
 
