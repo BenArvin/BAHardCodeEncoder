@@ -401,12 +401,6 @@ class BAHardCodeDecoder(object):
 		#start decode
 		self.ergodicPaths('', self.__projectRootPath)
 
-		#remove all contents in defenition file
-		defenitionFileHandler = open(defenitionFilePath, 'w')
-		defenitionFileHandler.seek(0)
-		defenitionFileHandler.truncate()
-		defenitionFileHandler.close()
-
 		print('👌 Finished!\n')
 
 if __name__ == '__main__':
