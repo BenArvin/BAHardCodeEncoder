@@ -309,14 +309,24 @@ class BAHardCodeDecoder(object):
 		fileContent = fileHandler.read()
 		fileHandler.close()
 
-		needRewrite = False
 		#replace
-		for key, value in self.__decryptedDefenitionsDic.items():
-			searchTarget = '[' + key + ' BAHC_Decrypt]'
-			newFileContent = fileContent.replace(searchTarget, '@"'+ self.convertEscapeCharacter(value) + '"')
-			if fileContent != newFileContent:
-				fileContent = newFileContent
-				needRewrite = True
+		results = re.finditer('\[BAHCKey(.)*? BAHC_Decrypt\]', fileContent)
+		needRewrite = False
+		newFileContent = ''
+		indexStart = 0
+		for result in results:
+			#get content and contentIndex
+			resultContent = result.group()
+			resultStart = result.start()
+			resultEnd = result.end()
+			key = fileContent[resultStart + 1 : resultEnd - 14]
+			decryptedContent = self.__decryptedDefenitionsDic[key]
+
+			newFileContent = newFileContent + fileContent[indexStart: resultStart] + '@"' + decryptedContent + '"'
+			indexStart = resultEnd
+			needRewrite = True
+
+		newFileContent = newFileContent + fileContent[indexStart: len(fileContent)]
 
 		if needRewrite == True:
 			#print log
@@ -328,7 +338,7 @@ class BAHardCodeDecoder(object):
 			newFileHandler = open(filePath, 'w')
 			newFileHandler.seek(0)
 			newFileHandler.truncate()
-			newFileHandler.write(fileContent)
+			newFileHandler.write(newFileContent)
 			newFileHandler.close()
 
 	def ergodicPaths(self, rootName, rootDir):

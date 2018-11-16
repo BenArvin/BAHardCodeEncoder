@@ -29,6 +29,18 @@ class BACommonEncryptUtil(object):
 		return base64.b64encode(ciphertext)
 
 	@classmethod
+	def __byteUnpad(cls, text, byteAlignLen):
+		count = len(text)
+		mod_num = count % byteAlignLen
+		assert mod_num == 0
+		lastChar = text[-1]
+		lastLen = ord(lastChar)
+		lastChunk = text[-lastLen:]
+		if lastChunk == chr(lastLen)*lastLen:
+			return text[:-lastLen]
+		return text
+
+	@classmethod
 	def AESDecrypt(cls, source, key, iv):
 		if source == None:
 			return "⚠️ ERROR: Content null!"
@@ -39,5 +51,5 @@ class BACommonEncryptUtil(object):
 		encrData = base64.b64decode(source)
 		cipher = AES.new(key, AES.MODE_CBC, iv)
 		decrData = cipher.decrypt(encrData)
-		decrData = decrData[:-ord(decrData[len(decrData)-1:])]
+		decrData = cls.__byteUnpad(decrData, 16)
 		return decrData.decode('utf-8')
