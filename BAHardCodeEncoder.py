@@ -5,20 +5,20 @@ instructions = '''
 Encode all hard code string in objective-c project.
 
 How to use:
-1. pip install pycrypto
-2. put files in /oc-class into project
-3. edit key & iv for encrypt and decrypt action in this script and NSString+BAHCCategory.h
-4. edit exception settings in this script: file name, file prefix, file suffix, folder name, folder prefix, folder suffix, string format specifiers
-5. start encode/decode action by command: python param1 --encode/--decode param2
+1. install Python 3
+2. pip install pycryptodome
+3. put files in /oc-class into project
+4. edit key & iv for encrypt and decrypt action in this script and NSString+BAHCCategory.h
+5. edit exception settings in this script: file name, file prefix, file suffix, folder name, folder prefix, folder suffix, string format specifiers
+6. start encode/decode action by command: python param1 --encode/--decode param2
 	param1: path of this script
 	param2: root path of project
-6. import NSString+BAHCCategory.h and BAHCDefenitions.h globally
+7. import NSString+BAHCCategory.h and BAHCDefenitions.h globally
 
 PS:
    1. length of Key and iv for encrypt action must be a multiple of 16
    2. you must skip these files: NSString+BAHCCategory.h, NSString+BAHCCategory.m, BAHCDefenitions.h, GTMBase64.h, GTMBase64.m, GTMDefines.h
-   3. python 2.7 support
-   4. use option --encrypt/--decrypt to encrypt/decrypt individual content
+   3. use option --encrypt/--decrypt to encrypt/decrypt individual content
 '''
 
 #****************  Settings for encrypt & decrypt  ********************
@@ -38,7 +38,7 @@ Exception_File_Names = ['NSString+BAHCCategory.h',
 						'GTMBase64.m',
 						'GTMDefines.h']
 Exception_File_Prefix = []
-Exception_File_Suffix = ['\.a', '\.framework']
+Exception_File_Suffix = [r'\.a', r'\.framework']
 
 Exception_Folder_Names = ['node_modules',
                           '.idea',
@@ -61,8 +61,6 @@ Decode_Escape_Characters_Value = ['\\\\', '\\n', '\\a', '\\b', '\\f', '\\r', '\\
 
 
 import sys, os, re, hashlib, json
-reload(sys)
-sys.setdefaultencoding("utf-8")
 from BACommonUtils.BACommonFileUtil import BACommonFileUtil
 from BACommonUtils.BACommonEncryptUtil import BACommonEncryptUtil
 
@@ -170,7 +168,7 @@ class BAHardCodeEncoder(object):
 	def convertEscapeCharacter(self, source):
 		result = source
 		for i in range(len(Encode_Escape_Characters_Key)):
-			result = result.replace(Encode_Escape_Characters_Key[i], Encode_Escape_Characters_Value[i]);
+			result = result.replace(Encode_Escape_Characters_Key[i], Encode_Escape_Characters_Value[i])
 		return result
 
 	def analyzeFile(self, fileName, filePath):
@@ -184,21 +182,21 @@ class BAHardCodeEncoder(object):
 		fileContent = fileHandler.read()
 		fileHandler.close()
 
-		results = re.finditer('@"(.|(\\\\\n))*?"( |\t|\n)*(\n|;|,|])', fileContent)
+		results = re.finditer('@"(.|(\\\\\n))*?[^\\\\]"( |\t|\n)*(\n|;|,|])', fileContent)
 		needRewrite = False
 		newFileContent = ''
 		indexStart = 0
 		relativePath = filePath
-		relativePath = relativePath.replace(self.__projectRootPath, "/");
+		relativePath = relativePath.replace(self.__projectRootPath, "/")
 		for result in results:
 			#get content and contentIndex
 			resultContent = result.group()
-			stringEndTag = re.finditer('"( |\t|\n)*(\n|;|,|])', resultContent)
+			stringEndTag = re.finditer('[^\\\\]"( |\t|\n)*(\n|;|,|])', resultContent)
 			for item in stringEndTag:
 				stringEndTag = item
 				break
 			resultStart = result.start()
-			resultEnd = stringEndTag.start() + resultStart + 1
+			resultEnd = stringEndTag.start() + resultStart + 2
 			trueContent = resultContent[2: resultEnd - resultStart - 1]
 
 			#check if need skip
@@ -208,7 +206,8 @@ class BAHardCodeEncoder(object):
 				continue
 
 			#get new key and new value
-			convertedContent = self.convertEscapeCharacter(trueContent)
+			# convertedContent = self.convertEscapeCharacter(trueContent)
+			convertedContent = trueContent
 			key = 'BAHCKey' + hashlib.md5(('NEW_NAME_FOR_' + trueContent + '_OF_' + relativePath + '_AT_' + str(resultStart) + ':' + str(resultEnd)).encode(encoding='UTF-8')).hexdigest()
 			value = BACommonEncryptUtil.AESEncrypt(convertedContent, AES_key, AES_iv)
 
@@ -253,7 +252,7 @@ class BAHardCodeEncoder(object):
 			return
 
 		self.__projectRootPath = projectRootPath + '/'
-		self.__projectRootPath = self.__projectRootPath.replace("//", "/");
+		self.__projectRootPath = self.__projectRootPath.replace("//", "/")
 
 		#check key and iv length
 		if AES_key == None or AES_iv == None:
@@ -273,7 +272,7 @@ class BAHardCodeEncoder(object):
 
 		#creat defenition file
 		self.__defenitionFilePath = self.__projectRootPath + '/' + DefenitionFileName
-		self.__defenitionFilePath = self.__defenitionFilePath.replace("//", "/");
+		self.__defenitionFilePath = self.__defenitionFilePath.replace("//", "/")
 		if os.path.exists(self.__defenitionFilePath):
 			os.remove(self.__defenitionFilePath)
 
@@ -295,7 +294,7 @@ class BAHardCodeDecoder(object):
 	def convertEscapeCharacter(self, source):
 		result = source
 		for i in range(len(Decode_Escape_Characters_Key)):
-			result = result.replace(Decode_Escape_Characters_Key[i], Decode_Escape_Characters_Value[i]);
+			result = result.replace(Decode_Escape_Characters_Key[i], Decode_Escape_Characters_Value[i])
 		return result
 
 	def analyzeFile(self, fileName, filePath):
@@ -310,16 +309,16 @@ class BAHardCodeDecoder(object):
 		fileHandler.close()
 
 		#replace
-		results = re.finditer('\[BAHCKey(.)*? BAHC_Decrypt\]', fileContent)
+		results = re.finditer(r'\[BAHCKey(.)*? BAHC_Decrypt\]', fileContent)
 		needRewrite = False
 		newFileContent = ''
 		indexStart = 0
 		for result in results:
 			#get content and contentIndex
-			resultContent = result.group()
 			resultStart = result.start()
 			resultEnd = result.end()
 			key = fileContent[resultStart + 1 : resultEnd - 14]
+			# decryptedContent = self.convertEscapeCharacter(self.__decryptedDefenitionsDic[key])
 			decryptedContent = self.__decryptedDefenitionsDic[key]
 
 			newFileContent = newFileContent + fileContent[indexStart: resultStart] + '@"' + decryptedContent + '"'
@@ -331,7 +330,7 @@ class BAHardCodeDecoder(object):
 		if needRewrite == True:
 			#print log
 			relativePath = filePath
-			relativePath = relativePath.replace(self.__projectRootPath, "/");
+			relativePath = relativePath.replace(self.__projectRootPath, "/")
 			print('✅ ' + relativePath + '\n')
 
 			#write new content into file
@@ -360,7 +359,7 @@ class BAHardCodeDecoder(object):
 			return
 
 		self.__projectRootPath = projectRootPath + '/'
-		self.__projectRootPath = self.__projectRootPath.replace("//", "/");
+		self.__projectRootPath = self.__projectRootPath.replace("//", "/")
 
 		#check key and iv length
 		if AES_key == None or AES_iv == None:
@@ -416,27 +415,27 @@ class BAHardCodeDecoder(object):
 if __name__ == '__main__':
 	if len(sys.argv) < 2:
 		quit()
-	firstParam = sys.argv[1];
+	firstParam = sys.argv[1]
 
 	if firstParam == '--help':
-		print('\033[1;32m' + instructions + '\033[0m');
-		quit();
+		print('\033[1;32m' + instructions + '\033[0m')
+		quit()
 
 	if firstParam == '--encrypt':
-		content = raw_input('\033[1;32mContent: \033[0m')
-		key = raw_input('\033[1;32mKey: \033[0m')
-		iv = raw_input('\033[1;32mIV: \033[0m')
+		content = input('\033[1;32mContent: \033[0m')
+		key = input('\033[1;32mKey: \033[0m')
+		iv = input('\033[1;32mIV: \033[0m')
 		print(BACommonEncryptUtil.AESEncrypt(content, key, iv))
-		quit();
+		quit()
 
 	if firstParam == '--decrypt':
-		content = raw_input('\033[1;32mContent: \033[0m')
-		key = raw_input('\033[1;32mKey: \033[0m')
-		iv = raw_input('\033[1;32mIV: \033[0m')
+		content = input('\033[1;32mContent: \033[0m')
+		key = input('\033[1;32mKey: \033[0m')
+		iv = input('\033[1;32mIV: \033[0m')
 		print(BACommonEncryptUtil.AESDecrypt(content, key, iv))
-		quit();
+		quit()
 
-	if len(sys.argv) >= 2:
+	if len(sys.argv) >= 3:
 		if firstParam == '--decode':
 			decoder = BAHardCodeDecoder()
 			decoder.start(sys.argv[2])

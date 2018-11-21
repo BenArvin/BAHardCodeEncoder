@@ -2,8 +2,6 @@
 # -*- coding: UTF-8 -*-
 
 import sys, os
-reload(sys)
-sys.setdefaultencoding("utf-8")
 
 class BACommonFileUtil(object):
 	def __init__(self):
