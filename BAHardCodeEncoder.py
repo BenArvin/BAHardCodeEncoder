@@ -5,15 +5,14 @@ instructions = '''
 Encode all hard code string in objective-c project.
 
 How to use:
-1. install Python 3
-2. pip install pycryptodome
-3. put files in /oc-class into project
-4. edit key & iv for encrypt and decrypt action in this script and NSString+BAHCCategory.h
-5. edit exception settings in this script: file name, file prefix, file suffix, folder name, folder prefix, folder suffix, string format specifiers
-6. start encode/decode action by command: python param1 --encode/--decode param2
+1. put files in /oc-class into your project
+2. edit key & iv for encrypt and decrypt action in this script and NSString+BAHCCategory.h
+3. edit exception settings in this script: file name, file prefix, file suffix, folder name, folder prefix, folder suffix, string format specifiers
+4. pipenv install
+5. start encode/decode action by command: python param1 --encode/--decode param2
 	param1: path of this script
 	param2: root path of project
-7. import NSString+BAHCCategory.h and BAHCDefenitions.h globally
+6. import NSString+BAHCCategory.h and BAHCDefenitions.h globally
 
 PS:
    1. length of Key and iv for encrypt action must be a multiple of 16
