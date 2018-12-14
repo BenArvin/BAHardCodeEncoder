@@ -14,7 +14,7 @@ class BACommonEncryptUtil(object):
 		mod_num = count % byteAlignLen
 		if mod_num == 0:
 			return text
-		add_num = ((count // byteAlignLen) + 1) * byteAlignLen - mod_num
+		add_num = ((count // byteAlignLen) + 1) * byteAlignLen - count
 		return bytes(text.decode('utf-8') + chr(add_num) * add_num, 'utf-8')
 	
 	@classmethod
