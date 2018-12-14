@@ -32,6 +32,7 @@ xcuserdata
 ## python
 *.pyc
 Pipfile.lock
+.venv/
 
 ##vscode
 /.vscode
