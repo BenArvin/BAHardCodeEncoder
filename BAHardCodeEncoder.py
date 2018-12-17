@@ -145,7 +145,7 @@ class BAHardCodeFileHelper(object):
 		else:
 			if os.path.isdir(path) == True:
 				return True
-			if re.match('^(.)+\\.(h|m|pch)$', name, re.S) == None:
+			if re.match('^(.)+\\.(h|m|mm|pch)$', name, re.S) == None:
 				return True
 			if name in Exception_File_Names:
 				return True
@@ -181,7 +181,7 @@ class BAHardCodeEncoder(object):
 		fileContent = fileHandler.read()
 		fileHandler.close()
 
-		results = re.finditer('@"(.|(\\\\\n))*?[^\\\\]"( |\t|\n)*(\n|;|,|])', fileContent)
+		results = re.finditer('@"(.|(\\\\\n))*?"( |\t|\n|]|;|,|:|})', fileContent)
 		needRewrite = False
 		newFileContent = ''
 		indexStart = 0
@@ -190,14 +190,12 @@ class BAHardCodeEncoder(object):
 		for result in results:
 			#get content and contentIndex
 			resultContent = result.group()
-			stringEndTag = re.finditer('[^\\\\]"( |\t|\n)*(\n|;|,|])', resultContent)
+			stringEndTag = re.finditer('"', resultContent)
 			for item in stringEndTag:
 				stringEndTag = item
-				break
 			resultStart = result.start()
-			resultEnd = stringEndTag.start() + resultStart + 2
+			resultEnd = stringEndTag.start() + resultStart + 1
 			trueContent = resultContent[2: resultEnd - resultStart - 1]
-
 			#check if need skip
 			if len(trueContent) == 0:
 				continue
