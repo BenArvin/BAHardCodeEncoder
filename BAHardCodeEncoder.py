@@ -60,9 +60,6 @@ Exception_String_Format_Specifiers = ['%@', '%%', '%d', '%D', '%u', '%U', '%x', 
 Encode_Escape_Characters_Key = ['\\\n', '\\n', '\\a', '\\b', '\\f', '\\r', '\\t', '\\v', '\\"', '\\0', '\\\\']
 Encode_Escape_Characters_Value = ['', '\n', '\a', '\b', '\f', '\r', '\t', '\v', '\"', '', '\\']
 
-Decode_Escape_Characters_Key = ['\\', '\n', '\a', '\b', '\f', '\r', '\t', '\v', '\"']
-Decode_Escape_Characters_Value = ['\\\\', '\\n', '\\a', '\\b', '\\f', '\\r', '\\t', '\\v', '\\"']
-
 #**********************************************************************
 
 
@@ -129,14 +126,6 @@ def __decode(rootPath):
 		return
 	if len(AES_key) % 16 != 0 or len(AES_iv) % 16 != 0:
 		BAErrorUtil.printError(BAErrorGrade.error, 'ERROR: Length of key and iv for encrypt action must be a multiple of 16!')
-		return
-
-	#check key & value of escape characters
-	if isinstance(Decode_Escape_Characters_Key, list) == False or isinstance(Decode_Escape_Characters_Value, list) == False:
-		BAErrorUtil.printError(BAErrorGrade.error, "ERROR: List escape characters key or value can't be None!")
-		return
-	if len(Decode_Escape_Characters_Key) != len(Decode_Escape_Characters_Value):
-		BAErrorUtil.printError(BAErrorGrade.error, "ERROR: Length of escape characters key and value list must be equal!")
 		return
 
 	#find encode log file
@@ -288,23 +277,19 @@ if __name__ == '__main__':
 		quit()
 	firstParam = sys.argv[1]
 
-	if firstParam == '--help':
-		print('\033[1;32m' + instructions + '\033[0m')
+	if firstParam == '--encrypt':
+		content = input('\033[1;32mContent: \033[0m')
+		key = input('\033[1;32mKey: \033[0m')
+		iv = input('\033[1;32mIV: \033[0m')
+		print(BAEncryptUtil.AESEncrypt(content, key, iv))
 		quit()
 
-	# if firstParam == '--encrypt':
-	# 	content = input('\033[1;32mContent: \033[0m')
-	# 	key = input('\033[1;32mKey: \033[0m')
-	# 	iv = input('\033[1;32mIV: \033[0m')
-	# 	print(BACommonEncryptUtil.AESEncrypt(content, key, iv))
-	# 	quit()
-
-	# if firstParam == '--decrypt':
-	# 	 content = input('\033[1;32mContent: \033[0m')
-	# 	 key = input('\033[1;32mKey: \033[0m')
-	# 	 iv = input('\033[1;32mIV: \033[0m')
-	# 	 print(BACommonEncryptUtil.AESDecrypt(content, key, iv))
-	# 	 quit()
+	if firstParam == '--decrypt':
+		content = input('\033[1;32mContent: \033[0m')
+		key = input('\033[1;32mKey: \033[0m')
+		iv = input('\033[1;32mIV: \033[0m')
+		print(BAEncryptUtil.AESDecrypt(content, key, iv))
+		quit()
 
 	if len(sys.argv) >= 3:
 		if firstParam == '--decode':
