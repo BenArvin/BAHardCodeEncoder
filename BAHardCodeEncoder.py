@@ -55,7 +55,7 @@ Exception_Folder_Suffix = []
 
 Exception_String_Format_Specifiers = ['%@', '%%', '%d', '%D', '%u', '%U', '%x', '%X',
 										'%o', '%O', '%f', '%e', '%E', '%g', '%G', '%c',
-										'%C', '%s', '%S', '%p', '%a', '%A', '%F']
+										'%C', '%s', '%S', '%p', '%a', '%A', '%F', '%zd']
 
 Encode_Escape_Characters_Key = ['\\\n', '\\n', '\\a', '\\b', '\\f', '\\r', '\\t', '\\v', '\\"', '\\0', '\\\\']
 Encode_Escape_Characters_Value = ['', '\n', '\a', '\b', '\f', '\r', '\t', '\v', '\"', '', '\\']

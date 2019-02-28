@@ -42,11 +42,12 @@ class BAFileEncoder(object):
                     contentLen = len(infoItem['content'])
                     tmpContent = infoItem['content'][1: contentLen - 1]
                     unCleanContentLen = len(infoItem['unCleanContent'])
+                    unCleanUtf8ContentLen = len(infoItem['unCleanContent'].encode('UTF-8', 'ignore'))
                     tmpUnCleanContent = infoItem['unCleanContent'][1: unCleanContentLen - 1]
                     tmpResult = {
                         'line': atCodeInfo['line'],
                         'column': atCodeInfo['column'],
-                        'codeLen': unCleanContentLen + 1,
+                        'codeLen': unCleanUtf8ContentLen + 1,
                         'stringContent': tmpContent,
                         'stringUnCleanContent': tmpUnCleanContent
                     }
@@ -75,11 +76,11 @@ class BAFileEncoder(object):
             return None, None, BAErrorUtil.buildErrorModel(BAErrorGrade.normal, 'Skip file: '+filePath)
         
         oldFileHandler = open(filePath, 'r')
-        oldFileContent = oldFileHandler.read()
+        oldFileContent = oldFileHandler.read().encode('UTF-8', 'ignore')
         oldFileHandler.close()
 
         encodeLog = []
-        newFileContent = ''
+        newFileContent = ''.encode('UTF-8')
         shouldRewrite = False
         lastOffset = 0
         for i in range(0, len(stringCodes), 1):
@@ -97,7 +98,7 @@ class BAFileEncoder(object):
             shouldRewrite = True
             newKey, newContent = self.encryptFunc(oldContent, oldUnCleanContent, filePath, lineTmp, columnTmp)
             if newKey != None and newContent != None:
-                newFileContent = newFileContent + newKey
+                newFileContent = newFileContent + newKey.encode('UTF-8')
                 lastOffset = offset + stringCodeItem['codeLen']
                 encodeLog.append({
                     'path': filePath,
@@ -111,4 +112,4 @@ class BAFileEncoder(object):
             else:
                 newFileContent = newFileContent + oldUnCleanContent
         newFileContent = newFileContent + oldFileContent[lastOffset: len(oldFileContent)]
-        return encodeLog, newFileContent, None
+        return encodeLog, newFileContent.decode('UTF-8', 'ignore'), None

@@ -95,7 +95,7 @@ class BAFileUtil(object):
 		fileHandler.close()
 		result = []
 		for line in lines:
-			result.append(len(line))
+			result.append(len(line.encode('UTF-8', 'ignore')))
 		return result
 
 	@classmethod
