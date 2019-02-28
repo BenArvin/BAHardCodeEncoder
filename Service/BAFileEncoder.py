@@ -98,7 +98,7 @@ class BAFileEncoder(object):
         if linesSize == None or len(linesSize) == 0:
             return None, None, BAErrorUtil.buildErrorModel(BAErrorGrade.normal, 'Skip file: '+filePath)
         
-        if self.encryptFunc != None:
+        if self.encryptFunc == None:
             return None, None, BAErrorUtil.buildErrorModel(BAErrorGrade.normal, 'Skip file: '+filePath)
         
         oldFileHandler = open(filePath, 'r')
