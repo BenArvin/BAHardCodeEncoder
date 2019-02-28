@@ -4,9 +4,9 @@
 import sys, os, base64
 from Crypto.Cipher import AES
 
-class BACommonEncryptUtil(object):
+class BAEncryptUtil(object):
 	def __init__(self):
-		super(BACommonEncryptUtil, self).__init__()
+		super(BAEncryptUtil, self).__init__()
 
 	@classmethod
 	def __bytePad(cls, text, byteAlignLen):

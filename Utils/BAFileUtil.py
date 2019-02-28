@@ -3,9 +3,9 @@
 
 import sys, os
 
-class BACommonFileUtil(object):
+class BAFileUtil(object):
 	def __init__(self):
-		super(BACommonFileUtil, self).__init__()
+		super(BAFileUtil, self).__init__()
 
 	@classmethod
 	def isPathExisted(cls, path, isDir):
@@ -85,3 +85,30 @@ class BACommonFileUtil(object):
 				resultArray.append(rootPath)
 		cls.__ergodicToFind(targetName, isDir, rootPath, resultArray)
 		return resultArray
+
+	@classmethod
+	def getLinesSize(cls, filePath):
+		if cls.isPathExisted(filePath, False) == False:
+			return None
+		fileHandler = open(filePath, 'r')
+		lines = fileHandler.readlines()
+		fileHandler.close()
+		result = []
+		for line in lines:
+			result.append(len(line))
+		return result
+
+	@classmethod
+	def convertToOffset(cls, linesSize, line, column):
+		if linesSize == None:
+			return -1
+		if len(linesSize) == 0:
+			return 0
+		result = 0
+		for i in range(0, len(linesSize), 1):
+			if i == line:
+				result = result + column
+				break
+			else:
+				result = result + linesSize[i]
+		return result

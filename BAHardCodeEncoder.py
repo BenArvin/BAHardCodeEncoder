@@ -19,9 +19,16 @@ PS:
    2. you must skip these files: NSString+BAHCCategory.h, NSString+BAHCCategory.m, BAHCDefenitions.h, GTMBase64.h, GTMBase64.m, GTMDefines.h
    3. use option --encrypt/--decrypt to encrypt/decrypt individual content
 '''
+#****************  Settings for defenitions & log file  ***************
+
+DefenitionFileName = 'BAHCDefenitions.h'
+EncodeLogFileName = 'BAHCEncodeLog.json'
+
+#**********************************************************************
 
 #****************  Settings for encrypt & decrypt  ********************
 
+Key_salt = 'abcdef'
 AES_key = '9Jvae2bFOYL$JoTt'
 AES_iv = 'yg@t2lLZXmP8&J7r'
 
@@ -40,9 +47,9 @@ Exception_File_Prefix = []
 Exception_File_Suffix = [r'\.a', r'\.framework']
 
 Exception_Folder_Names = ['node_modules',
-                          '.idea',
-                          '.git',
-                          'Pods']
+							'.idea',
+							'.git',
+							'Pods']
 Exception_Folder_Prefix = []
 Exception_Folder_Suffix = []
 
@@ -60,226 +67,15 @@ Decode_Escape_Characters_Value = ['\\\\', '\\n', '\\a', '\\b', '\\f', '\\r', '\\
 
 
 import sys, os, re, hashlib, json
-from BACommonUtils.BACommonFileUtil import BACommonFileUtil
-from BACommonUtils.BACommonEncryptUtil import BACommonEncryptUtil
-
-DefenitionFileName = 'BAHCDefenitions.h'
-
-class BAHardCodeFileHelper(object):
-
-	regPatternsBuilded = False
-	regPatternStringFormatSpec = None
-	regPatternFolderPrefix = None
-	regPatternFolderSuffix = None
-	regPatternFilePrefix = None
-	regPatternFileSuffix = None
-
-	def __buildRegPatterns(self):
-		if self.regPatternsBuilded == True:
-			return
-		self.regPatternsBuilded = True
-
-		specsCount = len(Exception_String_Format_Specifiers)
-		if specsCount > 0 :
-			self.regPatternStringFormatSpec = '(.)*('
-			for i in range(specsCount):
-				self.regPatternStringFormatSpec = self.regPatternStringFormatSpec + Exception_String_Format_Specifiers[i]
-				if i != specsCount - 1:
-					self.regPatternStringFormatSpec = self.regPatternStringFormatSpec + '|'
-			self.regPatternStringFormatSpec = self.regPatternStringFormatSpec + ')(.)*'
-
-		folderPrefixCount = len(Exception_Folder_Prefix)
-		if folderPrefixCount > 0 :
-			self.regPatternFolderPrefix = '^('
-			for i in range(folderPrefixCount):
-				self.regPatternFolderPrefix = self.regPatternFolderPrefix + Exception_Folder_Prefix[i]
-				if i != folderPrefixCount - 1:
-					self.regPatternFolderPrefix = self.regPatternFolderPrefix + '|'
-			self.regPatternFolderPrefix = self.regPatternFolderPrefix + ')(.)*$'
-
-		folderSuffixCount = len(Exception_Folder_Suffix)
-		if folderPrefixCount > 0 :
-			self.regPatternFolderSuffix = '^(.)*('
-			for i in range(folderSuffixCount):
-				self.regPatternFolderSuffix = self.regPatternFolderSuffix + Exception_Folder_Suffix[i]
-				if i != folderSuffixCount - 1:
-					self.regPatternFolderSuffix = self.regPatternFolderSuffix + '|'
-			self.regPatternFolderSuffix = self.regPatternFolderSuffix + ')$'
-
-		filePrefixCount = len(Exception_File_Prefix)
-		if filePrefixCount > 0 :
-			self.regPatternFilePrefix = '^('
-			for i in range(filePrefixCount):
-				self.regPatternFilePrefix = self.regPatternFilePrefix + Exception_File_Prefix[i]
-				if i != filePrefixCount - 1:
-					self.regPatternFilePrefix = self.regPatternFilePrefix + '|'
-			self.regPatternFilePrefix = self.regPatternFilePrefix + ')(.)*$'
-
-		fileSuffixCount = len(Exception_File_Suffix)
-		if fileSuffixCount > 0 :
-			self.regPatternFileSuffix = '^(.)*('
-			for i in range(fileSuffixCount):
-				self.regPatternFileSuffix = self.regPatternFileSuffix + Exception_File_Suffix[i]
-				if i != fileSuffixCount - 1:
-					self.regPatternFileSuffix = self.regPatternFileSuffix + '|'
-			self.regPatternFileSuffix = self.regPatternFileSuffix + ')$'
-
-	def __init__(self):
-		super(BAHardCodeFileHelper, self).__init__()
-		self.__buildRegPatterns()
-
-	@classmethod
-	def checkNeedSkip(cls, name, path, isDir):
-		if os.path.exists(path) == False:
-			return True
-		if isDir == True:
-			if os.path.isdir(path) == False:
-				return True
-			if name in Exception_Folder_Names:
-				return True
-			if cls.regPatternFolderPrefix != None and re.match(cls.regPatternFolderPrefix, name, re.S) != None:
-				return True
-			if cls.regPatternFolderSuffix != None and re.match(cls.regPatternFolderSuffix, name, re.S) != None:
-				return True
-			return False
-		else:
-			if os.path.isdir(path) == True:
-				return True
-			if re.match('^(.)+\\.(h|m|mm|pch)$', name, re.S) == None:
-				return True
-			if name in Exception_File_Names:
-				return True
-			if cls.regPatternFilePrefix != None and re.match(cls.regPatternFilePrefix, name, re.S) != None:
-				return True
-			if cls.regPatternFileSuffix != None and re.match(cls.regPatternFileSuffix, name, re.S) != None:
-				return True
-			return False
-
-class BAHardCodeEncoder(object):
-
-	def __init__(self):
-		super(BAHardCodeEncoder, self).__init__()
-		self.__projectRootPath = ''
-		self.__defenitionFilePath = ''
-		self.__globalFileHandler = None
-		self.__fileHelper = BAHardCodeFileHelper()
-
-	def convertEscapeCharacter(self, source):
-		result = source
-		for i in range(len(Encode_Escape_Characters_Key)):
-			result = result.replace(Encode_Escape_Characters_Key[i], Encode_Escape_Characters_Value[i])
-		return result
-
-	def analyzeFile(self, fileName, filePath):
-		if BAHardCodeFileHelper.checkNeedSkip(fileName, filePath, False) == True:
-			return
-
-		#read original file content
-		fileHandler = open(filePath, 'r')
-		if fileHandler == None:
-			return
-		fileContent = fileHandler.read()
-		fileHandler.close()
-
-		results = re.finditer('@"(.|(\\\\\n))*?"( |\t|\n|]|;|,|:|})', fileContent)
-		needRewrite = False
-		newFileContent = ''
-		indexStart = 0
-		relativePath = filePath
-		relativePath = relativePath.replace(self.__projectRootPath, "/")
-		for result in results:
-			#get content and contentIndex
-			resultContent = result.group()
-			stringEndTag = re.finditer('"', resultContent)
-			for item in stringEndTag:
-				stringEndTag = item
-			resultStart = result.start()
-			resultEnd = stringEndTag.start() + resultStart + 1
-			trueContent = resultContent[2: resultEnd - resultStart - 1]
-			#check if need skip
-			if len(trueContent) == 0:
-				continue
-			if self.__fileHelper.regPatternStringFormatSpec != None and re.match(self.__fileHelper.regPatternStringFormatSpec, trueContent, re.S) != None:
-				continue
-
-			#get new key and new value
-			# convertedContent = self.convertEscapeCharacter(trueContent)
-			convertedContent = trueContent
-			key = 'BAHCKey' + hashlib.md5(('NEW_NAME_FOR_' + trueContent + '_OF_' + relativePath + '_AT_' + str(resultStart) + ':' + str(resultEnd)).encode(encoding='UTF-8')).hexdigest()
-			value = BACommonEncryptUtil.AESEncrypt(convertedContent, AES_key, AES_iv)
-
-			#write defenition
-			if self.__globalFileHandler:
-				self.__globalFileHandler.write('#define ' + key + ' @"' + value + '"\n')
-
-			#print log
-			print('✅ ' + relativePath + '(' + str(resultStart) + ':' + str(resultEnd) + '): ' + trueContent + ' -> ' + key + '\n')
-
-			#replace content in source file
-			newFileContent = newFileContent + fileContent[indexStart: resultStart] + '[' + key + ' BAHC_Decrypt]'
-			indexStart = resultEnd
-			needRewrite = True
-
-		newFileContent = newFileContent + fileContent[indexStart: len(fileContent)]
-
-		#write new content into file
-		if needRewrite == True:
-			newFileHandler = open(filePath, 'w')
-			newFileHandler.seek(0)
-			newFileHandler.truncate()
-			newFileHandler.write(newFileContent)
-			newFileHandler.close()
-
-	def ergodicPaths(self, rootName, rootDir):
-		if BAHardCodeFileHelper.checkNeedSkip(rootName, rootDir, True) == True:
-			return
-
-		for fileName in os.listdir(rootDir):
-			filePath = os.path.join(rootDir, fileName)
-			if (os.path.isdir(filePath)):
-				self.ergodicPaths(fileName, filePath)
-			else:
-				self.analyzeFile(fileName, filePath)
-
-	def start(self, projectRootPath):
-		print('👉 Encode action, Here we go!\n')
-
-		if projectRootPath == None:
-			print('⚠️ ERROR: Project root path None!')
-			return
-
-		self.__projectRootPath = projectRootPath + '/'
-		self.__projectRootPath = self.__projectRootPath.replace("//", "/")
-
-		#check key and iv length
-		if AES_key == None or AES_iv == None:
-			print("⚠️ ERROR: Key and iv for encrypt action can't be null!")
-			return
-		if len(AES_key) % 16 != 0 or len(AES_iv) % 16 != 0:
-			print('⚠️ ERROR: Length of key and iv for encrypt action must be a multiple of 16!')
-			return
-
-		#check key & value of escape characters
-		if isinstance(Encode_Escape_Characters_Key, list) == False or isinstance(Encode_Escape_Characters_Value, list) == False:
-			print("⚠️ ERROR: List escape characters key or value can't be None!")
-			return
-		if len(Encode_Escape_Characters_Key) != len(Encode_Escape_Characters_Value):
-			print("⚠️ ERROR: Length of escape characters key and value list must be equal!")
-			return
-
-		#creat defenition file
-		self.__defenitionFilePath = self.__projectRootPath + '/' + DefenitionFileName
-		self.__defenitionFilePath = self.__defenitionFilePath.replace("//", "/")
-		if os.path.exists(self.__defenitionFilePath):
-			os.remove(self.__defenitionFilePath)
-
-		#start analyze
-		self.__globalFileHandler = open(self.__defenitionFilePath, 'w+')
-		self.ergodicPaths('', self.__projectRootPath)
-		if self.__globalFileHandler:
-			self.__globalFileHandler.close()
-
-		print('👌 Finished!\n')
+# from Utils.BACommonFileUtil import BACommonFileUtil
+# from Utils.BACommonEncryptUtil import BACommonEncryptUtil
+# from BAClangUtils.RawTokenUtil import RawTokenUtil
+from Service.BAFileDecoder import BAFileDecoder
+from Service.BAFileEncoder import BAFileEncoder
+from Service.BAExceptionHelper import BAExceptionHelper
+from Utils.BAFileUtil import BAFileUtil
+from Utils.BAErrorUtil import BAErrorUtil, BAErrorGrade
+from Utils.BAEncryptUtil import BAEncryptUtil
 
 class BAHardCodeDecoder(object):
 
@@ -409,6 +205,109 @@ class BAHardCodeDecoder(object):
 
 		print('👌 Finished!\n')
 
+def __convertEscapeCharacterForEncode(source):
+	result = source
+	for i in range(len(Encode_Escape_Characters_Key)):
+		result = result.replace(Encode_Escape_Characters_Key[i], Encode_Escape_Characters_Value[i])
+	return result
+
+def __encryptFunc(content, unCleanContent, filePath, line, column):
+	if content == None or len(content) == 0:
+		return None, None
+	key = 'BAHCKey' + hashlib.md5((Key_salt + 'NEW_NAME_FOR_' + content + '_OF_' + filePath + '_AT_' + str(line) + ':' + str(column)).encode(encoding='UTF-8')).hexdigest()
+	newContent = '[@"' + BAEncryptUtil.AESEncrypt(__convertEscapeCharacterForEncode(content), AES_key, AES_iv) + '" BAHC_Decrypt]'
+	return key, newContent
+
+def __encodeAction(rootName, rootDir, outputFileHandler, logFileHandler, encoder, exceptionHelper):
+	if exceptionHelper.shouldSkipFolder(rootName, rootDir) == True:
+		return
+
+	for fileName in os.listdir(rootDir):
+		filePath = os.path.join(rootDir, fileName)
+		if (os.path.isdir(filePath)):
+			__encodeAction(fileName, filePath, outputFileHandler, logFileHandler, encoder, exceptionHelper)
+		else:
+			logs, newContent, error = encoder.encode(fileName, filePath)
+			if error != None:
+				BAErrorUtil.printErrorModel(error)
+			elif len(logs) > 0:
+				tmpFileHandler = open(filePath, 'w')
+				tmpFileHandler.seek(0)
+				tmpFileHandler.truncate()
+				tmpFileHandler.write(newContent)
+				tmpFileHandler.close()
+				# print(newContent)
+
+				if outputFileHandler:
+					for logItem in logs:
+						outputFileHandler.write('#define ' + logItem['key'] + ' ' + logItem['newContent'] + '\n')
+				
+				if logFileHandler:
+					logString = json.dumps(logs)
+					logFileHandler.write(logString[1: len(logString) - 1])
+				
+				BAErrorUtil.printError(BAErrorGrade.success, 'Resolved: ' + filePath)
+
+def __encode(rootPath):
+	BAErrorUtil.printError(BAErrorGrade.normal, '👉 Encode action, Here we go!\n')
+
+	if rootPath == None:
+		BAErrorUtil.printError(BAErrorGrade.error, 'ERROR: Project root path None!')
+		return
+
+	rootPathTmp = rootPath.replace("//", "/")
+
+	#check key and iv length
+	if AES_key == None or AES_iv == None:
+		BAErrorUtil.printError(BAErrorGrade.error, "ERROR: Key and iv for encrypt action can't be null!")
+		return
+	if len(AES_key) % 16 != 0 or len(AES_iv) % 16 != 0:
+		BAErrorUtil.printError(BAErrorGrade.error, "ERROR: Length of key and iv for encrypt action must be a multiple of 16!")
+		return
+
+	#check key & value of escape characters
+	if isinstance(Encode_Escape_Characters_Key, list) == False or isinstance(Encode_Escape_Characters_Value, list) == False:
+		BAErrorUtil.printError(BAErrorGrade.error, "ERROR: List escape characters key or value can't be None!")
+		return
+	if len(Encode_Escape_Characters_Key) != len(Encode_Escape_Characters_Value):
+		BAErrorUtil.printError(BAErrorGrade.error, "ERROR: Length of escape characters key and value list must be equal!")
+		return
+
+	#creat defenition file
+	defenitionFilePath = rootPathTmp + '/' + DefenitionFileName
+	defenitionFilePath = defenitionFilePath.replace("//", "/")
+	if os.path.exists(defenitionFilePath):
+		os.remove(defenitionFilePath)
+
+	#creat log file
+	logFilePath = rootPathTmp + '/' + EncodeLogFileName
+	logFilePath = logFilePath.replace("//", "/")
+	if os.path.exists(logFilePath):
+		os.remove(logFilePath)
+
+	#start analyze
+	encoder = BAFileEncoder()
+	encoder.excChars = Exception_String_Format_Specifiers
+	encoder.excFileNames = Exception_File_Names
+	encoder.excFilePrefixes = Exception_File_Prefix
+	encoder.excFileSuffixes = Exception_File_Suffix
+	encoder.encryptFunc = __encryptFunc
+
+	exceptionHelper = BAExceptionHelper()
+	exceptionHelper.excFolderNames = Exception_Folder_Names
+	exceptionHelper.excFolderPrefixes = Exception_Folder_Prefix
+	exceptionHelper.excFolderSuffixes = Exception_Folder_Suffix
+
+	defenitionFilePathHandler = open(defenitionFilePath, 'w+')
+	logFilePathHandler = open(logFilePath, 'w+')
+	logFilePathHandler.write('[')
+	__encodeAction('', rootPathTmp, defenitionFilePathHandler, logFilePathHandler, encoder, exceptionHelper)
+	logFilePathHandler.write(']')
+	logFilePathHandler.close()
+	defenitionFilePathHandler.close()
+
+	BAErrorUtil.printError(BAErrorGrade.normal, '👌 Finished!\n')
+
 if __name__ == '__main__':
 	if len(sys.argv) < 2:
 		quit()
@@ -418,24 +317,24 @@ if __name__ == '__main__':
 		print('\033[1;32m' + instructions + '\033[0m')
 		quit()
 
-	if firstParam == '--encrypt':
-		content = input('\033[1;32mContent: \033[0m')
-		key = input('\033[1;32mKey: \033[0m')
-		iv = input('\033[1;32mIV: \033[0m')
-		print(BACommonEncryptUtil.AESEncrypt(content, key, iv))
-		quit()
+	# if firstParam == '--encrypt':
+	# 	content = input('\033[1;32mContent: \033[0m')
+	# 	key = input('\033[1;32mKey: \033[0m')
+	# 	iv = input('\033[1;32mIV: \033[0m')
+	# 	print(BACommonEncryptUtil.AESEncrypt(content, key, iv))
+	# 	quit()
 
-	if firstParam == '--decrypt':
-		content = input('\033[1;32mContent: \033[0m')
-		key = input('\033[1;32mKey: \033[0m')
-		iv = input('\033[1;32mIV: \033[0m')
-		print(BACommonEncryptUtil.AESDecrypt(content, key, iv))
-		quit()
+	# if firstParam == '--decrypt':
+	# 	 content = input('\033[1;32mContent: \033[0m')
+	# 	 key = input('\033[1;32mKey: \033[0m')
+	# 	 iv = input('\033[1;32mIV: \033[0m')
+	# 	 print(BACommonEncryptUtil.AESDecrypt(content, key, iv))
+	# 	 quit()
 
 	if len(sys.argv) >= 3:
 		if firstParam == '--decode':
-			decoder = BAHardCodeDecoder()
-			decoder.start(sys.argv[2])
+			#  decoder = BAHardCodeDecoder()
+			#  decoder.start(sys.argv[2])
+			pass
 		elif firstParam == '--encode':
-			encoder = BAHardCodeEncoder()
-			encoder.start(sys.argv[2])
+			__encode(sys.argv[2])
