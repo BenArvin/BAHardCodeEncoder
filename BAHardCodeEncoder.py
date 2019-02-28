@@ -66,144 +66,115 @@ Decode_Escape_Characters_Value = ['\\\\', '\\n', '\\a', '\\b', '\\f', '\\r', '\\
 #**********************************************************************
 
 
-import sys, os, re, hashlib, json
-# from Utils.BACommonFileUtil import BACommonFileUtil
-# from Utils.BACommonEncryptUtil import BACommonEncryptUtil
-# from BAClangUtils.RawTokenUtil import RawTokenUtil
+import sys, os, hashlib, json
 from Service.BAFileDecoder import BAFileDecoder
 from Service.BAFileEncoder import BAFileEncoder
 from Service.BAExceptionHelper import BAExceptionHelper
 from Utils.BAFileUtil import BAFileUtil
 from Utils.BAErrorUtil import BAErrorUtil, BAErrorGrade
 from Utils.BAEncryptUtil import BAEncryptUtil
+from BAAlgorithmUtils.SBOMUtil import SBOMUtil
 
-class BAHardCodeDecoder(object):
+def __decodeAction(rootName, rootDir, stringSearchUtil, replaceDic, exceptionHelper):
+	if stringSearchUtil == None:
+		return
+	if replaceDic == None or len(replaceDic) == 0:
+		return
+	if exceptionHelper.shouldSkipFolder(rootName, rootDir) == True:
+		return
 
-	def __init__(self):
-		super(BAHardCodeDecoder, self).__init__()
-		self.__projectRootPath = ''
-		self.__decryptedDefenitionsDic = {}
+	for fileName in os.listdir(rootDir):
+		filePath = os.path.join(rootDir, fileName)
+		if (os.path.isdir(filePath)):
+			__decodeAction(fileName, filePath, stringSearchUtil, replaceDic, exceptionHelper)
+		else:
+			if exceptionHelper.shouldSkipFile(fileName, filePath) == True:
+				BAErrorUtil.printError(BAErrorGrade.normal, 'Skip file: ' + filePath)
+				continue
+			fileHandler = open(filePath, 'r')
+			newFileContent = fileHandler.read()
+			fileHandler.close()
+			searchResult = stringSearchUtil.search(newFileContent)
+			if searchResult == None or len(searchResult) == 0:
+				BAErrorUtil.printError(BAErrorGrade.normal, 'Skip file: ' + filePath)
+				continue
+			needRewrite = False
+			for key, indexs in searchResult.items():
+				if indexs != None and len(indexs) > 0 and key in replaceDic:
+					newFileContent = newFileContent.replace(key, '@"' + replaceDic[key] + '"')
+					needRewrite = True
+				else:
+					BAErrorUtil.printError(BAErrorGrade.normal, 'Skip file: ' + filePath)
+			if needRewrite == True:
+				BAErrorUtil.printError(BAErrorGrade.success, 'Decoded: ' + filePath)
+				newFileHandler = open(filePath, 'w')
+				newFileHandler.seek(0)
+				newFileHandler.truncate()
+				newFileHandler.write(newFileContent)
+				newFileHandler.close()
 
-	def convertEscapeCharacter(self, source):
-		result = source
-		for i in range(len(Decode_Escape_Characters_Key)):
-			result = result.replace(Decode_Escape_Characters_Key[i], Decode_Escape_Characters_Value[i])
-		return result
+def __decode(rootPath):
+	BAErrorUtil.printError(BAErrorGrade.normal, '👉 Decode action, here we go!')
 
-	def analyzeFile(self, fileName, filePath):
-		if BAHardCodeFileHelper.checkNeedSkip(fileName, filePath, False) == True:
-			return
+	if rootPath == None:
+		BAErrorUtil.printError(BAErrorGrade.error, 'ERROR: Project root path None!')
+		return
 
-		#read original file content
-		fileHandler = open(filePath, 'r')
-		if fileHandler == None:
-			return
-		fileContent = fileHandler.read()
-		fileHandler.close()
+	tmpRootPath = rootPath + '/'
+	tmpRootPath = tmpRootPath.replace("//", "/")
 
-		#replace
-		results = re.finditer(r'\[BAHCKey(.)*? BAHC_Decrypt\]', fileContent)
-		needRewrite = False
-		newFileContent = ''
-		indexStart = 0
-		for result in results:
-			#get content and contentIndex
-			resultStart = result.start()
-			resultEnd = result.end()
-			key = fileContent[resultStart + 1 : resultEnd - 14]
-			# decryptedContent = self.convertEscapeCharacter(self.__decryptedDefenitionsDic[key])
-			decryptedContent = self.__decryptedDefenitionsDic[key]
+	#check key and iv length
+	if AES_key == None or AES_iv == None:
+		BAErrorUtil.printError(BAErrorGrade.error, "ERROR: Key and iv for encrypt action can't be null!")
+		return
+	if len(AES_key) % 16 != 0 or len(AES_iv) % 16 != 0:
+		BAErrorUtil.printError(BAErrorGrade.error, 'ERROR: Length of key and iv for encrypt action must be a multiple of 16!')
+		return
 
-			newFileContent = newFileContent + fileContent[indexStart: resultStart] + '@"' + decryptedContent + '"'
-			indexStart = resultEnd
-			needRewrite = True
+	#check key & value of escape characters
+	if isinstance(Decode_Escape_Characters_Key, list) == False or isinstance(Decode_Escape_Characters_Value, list) == False:
+		BAErrorUtil.printError(BAErrorGrade.error, "ERROR: List escape characters key or value can't be None!")
+		return
+	if len(Decode_Escape_Characters_Key) != len(Decode_Escape_Characters_Value):
+		BAErrorUtil.printError(BAErrorGrade.error, "ERROR: Length of escape characters key and value list must be equal!")
+		return
 
-		newFileContent = newFileContent + fileContent[indexStart: len(fileContent)]
+	#find encode log file
+	possiblePaths = BAFileUtil.findTargetPaths(EncodeLogFileName, False, tmpRootPath)
+	if possiblePaths == None or len(possiblePaths) == 0:
+		BAErrorUtil.printError(BAErrorGrade.error, "ERROR: Can't find BAHCDefenitions.h !")
+		return
+	encodeLogFilePath = possiblePaths[0]
 
-		if needRewrite == True:
-			#print log
-			relativePath = filePath
-			relativePath = relativePath.replace(self.__projectRootPath, "/")
-			print('✅ ' + relativePath + '\n')
+	#read contents in encode log file
+	encodeLogFileFileHandler = open(encodeLogFilePath, 'r')
+	if encodeLogFileFileHandler == None:
+		BAErrorUtil.printError(BAErrorGrade.error, "ERROR: Can't read BAHCDefenitions.h !")
+		return
+	encodeLogContent = encodeLogFileFileHandler.read()
+	encodeLogFileFileHandler.close()
+	encodeLog = json.loads(encodeLogContent)
 
-			#write new content into file
-			newFileHandler = open(filePath, 'w')
-			newFileHandler.seek(0)
-			newFileHandler.truncate()
-			newFileHandler.write(newFileContent)
-			newFileHandler.close()
+	replaceDic = {}
+	sbomUtil = SBOMUtil()
+	for logItem in encodeLog:
+		key = logItem['key']
+		sbomUtil.train(key)
+		replaceDic[key] = logItem['oldUnCleanContent']
+	sbomUtil.prepare()
 
-	def ergodicPaths(self, rootName, rootDir):
-		if BAHardCodeFileHelper.checkNeedSkip(rootName, rootDir, True) == True:
-			return
+	exceptionHelper = BAExceptionHelper()
+	exceptionHelper.excFolderNames = Exception_Folder_Names
+	exceptionHelper.excFolderPrefixes = Exception_Folder_Prefix
+	exceptionHelper.excFolderSuffixes = Exception_Folder_Suffix
+	exceptionHelper.excFileNames = Exception_File_Names
+	exceptionHelper.excFilePrefixes = Exception_File_Prefix
+	exceptionHelper.excFileSuffixes = Exception_File_Suffix
 
-		for fileName in os.listdir(rootDir):
-			filePath = os.path.join(rootDir, fileName)
-			if (os.path.isdir(filePath)):
-				self.ergodicPaths(fileName, filePath)
-			else:
-				self.analyzeFile(fileName, filePath)
+	#start decode
+	__decodeAction('', tmpRootPath, sbomUtil, replaceDic, exceptionHelper)
 
-	def start(self, projectRootPath):
-		print('👉 Decode action, here we go!\n')
-
-		if projectRootPath == None:
-			print('⚠️ ERROR: Project root path None!')
-			return
-
-		self.__projectRootPath = projectRootPath + '/'
-		self.__projectRootPath = self.__projectRootPath.replace("//", "/")
-
-		#check key and iv length
-		if AES_key == None or AES_iv == None:
-			print("⚠️ ERROR: Key and iv for encrypt action can't be null!")
-			return
-		if len(AES_key) % 16 != 0 or len(AES_iv) % 16 != 0:
-			print('⚠️ ERROR: Length of key and iv for encrypt action must be a multiple of 16!')
-			return
-
-		#check key & value of escape characters
-		if isinstance(Decode_Escape_Characters_Key, list) == False or isinstance(Decode_Escape_Characters_Value, list) == False:
-			print("⚠️ ERROR: List escape characters key or value can't be None!")
-			return
-		if len(Decode_Escape_Characters_Key) != len(Decode_Escape_Characters_Value):
-			print("⚠️ ERROR: Length of escape characters key and value list must be equal!")
-			return
-
-		#find BAHCDefenitions.h file
-		possiblePaths = BACommonFileUtil.findTargetPaths(DefenitionFileName, False, self.__projectRootPath)
-		if possiblePaths == None or len(possiblePaths) == 0:
-			print("⚠️ ERROR: Can't find BAHCDefenitions.h !")
-			return
-		defenitionFilePath = possiblePaths[0]
-
-		#read contents in BAHCDefenitions.h file
-		defenitionFileHandler = open(defenitionFilePath, 'r')
-		if defenitionFileHandler == None:
-			print("⚠️ ERROR: Can't read BAHCDefenitions.h !")
-			return
-		defenitionsContent = defenitionFileHandler.read()
-		defenitionFileHandler.close()
-
-		if re.match('^[ |\n]*$', defenitionsContent, re.S) != None:
-			print("⚠️ ERROR: BAHCDefenitions.h file invalid!")
-			return
-
-		defenitionsContent = defenitionsContent.replace('#define ', '"')
-		defenitionsContent = defenitionsContent.replace(' @"', '":"')
-		defenitionsContent = defenitionsContent.replace('\n', ',')
-		defenitionsContent = defenitionsContent[0 : len(defenitionsContent) - 2]
-		defenitionsContent = '{' + defenitionsContent + '"}'
-		defenitionsDic = json.loads(defenitionsContent)
-
-		#decrypt all contents
-		for key, value in defenitionsDic.items():
-			self.__decryptedDefenitionsDic[key] = BACommonEncryptUtil.AESDecrypt(value, AES_key, AES_iv)
-
-		#start decode
-		self.ergodicPaths('', self.__projectRootPath)
-
-		print('👌 Finished!\n')
+	BAErrorUtil.printError(BAErrorGrade.normal, '👌 Finished!')
 
 def __convertEscapeCharacterForEncode(source):
 	result = source
@@ -227,6 +198,9 @@ def __encodeAction(rootName, rootDir, outputFileHandler, logFileHandler, encoder
 		if (os.path.isdir(filePath)):
 			__encodeAction(fileName, filePath, outputFileHandler, logFileHandler, encoder, exceptionHelper)
 		else:
+			if exceptionHelper.shouldSkipFile(fileName, filePath) == True:
+				BAErrorUtil.printError(BAErrorGrade.normal, 'Skip file: ' + filePath)
+				continue
 			logs, newContent, error = encoder.encode(fileName, filePath)
 			if error != None:
 				BAErrorUtil.printErrorModel(error)
@@ -245,12 +219,12 @@ def __encodeAction(rootName, rootDir, outputFileHandler, logFileHandler, encoder
 					logString = json.dumps(logs)
 					logFileHandler.write(logString[1: len(logString) - 1])
 				
-				BAErrorUtil.printError(BAErrorGrade.success, 'Resolved: ' + filePath)
+				BAErrorUtil.printError(BAErrorGrade.success, 'Encoded: ' + filePath)
 			else:
-				BAErrorUtil.printError(BAErrorGrade.normal, 'None changed: '+filePath)
+				BAErrorUtil.printError(BAErrorGrade.normal, 'Skip file: '+filePath)
 
 def __encode(rootPath):
-	BAErrorUtil.printError(BAErrorGrade.normal, '👉 Encode action, Here we go!\n')
+	BAErrorUtil.printError(BAErrorGrade.normal, '👉 Encode action, Here we go!')
 
 	if rootPath == None:
 		BAErrorUtil.printError(BAErrorGrade.error, 'ERROR: Project root path None!')
@@ -289,15 +263,15 @@ def __encode(rootPath):
 	#start analyze
 	encoder = BAFileEncoder()
 	encoder.excChars = Exception_String_Format_Specifiers
-	encoder.excFileNames = Exception_File_Names
-	encoder.excFilePrefixes = Exception_File_Prefix
-	encoder.excFileSuffixes = Exception_File_Suffix
 	encoder.encryptFunc = __encryptFunc
 
 	exceptionHelper = BAExceptionHelper()
 	exceptionHelper.excFolderNames = Exception_Folder_Names
 	exceptionHelper.excFolderPrefixes = Exception_Folder_Prefix
 	exceptionHelper.excFolderSuffixes = Exception_Folder_Suffix
+	exceptionHelper.excFileNames = Exception_File_Names
+	exceptionHelper.excFilePrefixes = Exception_File_Prefix
+	exceptionHelper.excFileSuffixes = Exception_File_Suffix
 
 	defenitionFilePathHandler = open(defenitionFilePath, 'w+')
 	logFilePathHandler = open(logFilePath, 'w+')
@@ -307,7 +281,7 @@ def __encode(rootPath):
 	logFilePathHandler.close()
 	defenitionFilePathHandler.close()
 
-	BAErrorUtil.printError(BAErrorGrade.normal, '👌 Finished!\n')
+	BAErrorUtil.printError(BAErrorGrade.normal, '👌 Finished!')
 
 if __name__ == '__main__':
 	if len(sys.argv) < 2:
@@ -334,8 +308,7 @@ if __name__ == '__main__':
 
 	if len(sys.argv) >= 3:
 		if firstParam == '--decode':
-			#  decoder = BAHardCodeDecoder()
-			#  decoder.start(sys.argv[2])
+			__decode(sys.argv[2])
 			pass
 		elif firstParam == '--encode':
 			__encode(sys.argv[2])

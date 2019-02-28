@@ -27,30 +27,6 @@ class BAFileEncoder(object):
     @excChars.setter
     def excChars(self, value):
         self.__exceptionHelper.excChars = value
-
-    @property
-    def excFileNames(self):
-        return self.__exceptionHelper.excFileNames
-    
-    @excFileNames.setter
-    def excFileNames(self, value):
-        self.__exceptionHelper.excFileNames = value
-    
-    @property
-    def excFilePrefixes(self):
-        return self.__exceptionHelper.excFilePrefixes
-    
-    @excFilePrefixes.setter
-    def excFilePrefixes(self, value):
-        self.__exceptionHelper.excFilePrefixes = value
-    
-    @property
-    def excFileSuffixes(self):
-        return self.__exceptionHelper.excFileSuffixes
-    
-    @excFileSuffixes.setter
-    def excFileSuffixes(self, value):
-        self.__exceptionHelper.excFileSuffixes = value
     
     def __parseStringCodes(self, filePath):
         output, error = self.__rawTokenUtil.parse(filePath)
@@ -87,9 +63,6 @@ class BAFileEncoder(object):
         return key, newContent
     
     def encode(self, fileName, filePath):
-        if self.__exceptionHelper.shouldSkipFile(fileName, filePath) == True:
-            return None, None, BAErrorUtil.buildErrorModel(BAErrorGrade.normal, 'Skip file: '+filePath)
-
         stringCodes = self.__parseStringCodes(filePath)
         if stringCodes == None or len(stringCodes) == 0:
             return None, None, BAErrorUtil.buildErrorModel(BAErrorGrade.normal, 'Skip file: '+filePath)
