@@ -236,7 +236,6 @@ def __encodeAction(rootName, rootDir, outputFileHandler, logFileHandler, encoder
 				tmpFileHandler.truncate()
 				tmpFileHandler.write(newContent)
 				tmpFileHandler.close()
-				# print(newContent)
 
 				if outputFileHandler:
 					for logItem in logs:
@@ -247,6 +246,8 @@ def __encodeAction(rootName, rootDir, outputFileHandler, logFileHandler, encoder
 					logFileHandler.write(logString[1: len(logString) - 1])
 				
 				BAErrorUtil.printError(BAErrorGrade.success, 'Resolved: ' + filePath)
+			else:
+				BAErrorUtil.printError(BAErrorGrade.normal, 'None changed: '+filePath)
 
 def __encode(rootPath):
 	BAErrorUtil.printError(BAErrorGrade.normal, '👉 Encode action, Here we go!\n')

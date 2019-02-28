@@ -98,6 +98,9 @@ class BAFileEncoder(object):
         if linesSize == None or len(linesSize) == 0:
             return None, None, BAErrorUtil.buildErrorModel(BAErrorGrade.normal, 'Skip file: '+filePath)
         
+        if self.encryptFunc != None:
+            return None, None, BAErrorUtil.buildErrorModel(BAErrorGrade.normal, 'Skip file: '+filePath)
+        
         oldFileHandler = open(filePath, 'r')
         oldFileContent = oldFileHandler.read()
         oldFileHandler.close()
@@ -119,20 +122,20 @@ class BAFileEncoder(object):
                 newFileContent = newFileContent + oldFileContent[offset: lastOffset]
                 continue
             shouldRewrite = True
-            newKey = None
-            newContent = None
-            if self.encryptFunc != None:
-                newKey, newContent = self.encryptFunc(oldContent, oldUnCleanContent, filePath, lineTmp, columnTmp)
-            newFileContent = newFileContent + newKey
-            lastOffset = offset + stringCodeItem['codeLen']
-            encodeLog.append({
-                'path': filePath,
-                'line': lineTmp,
-                'column': columnTmp,
-                'oldContent': oldContent,
-                'oldUnCleanContent': oldUnCleanContent,
-                'key': newKey,
-                'newContent': newContent
-            })
+            newKey, newContent = self.encryptFunc(oldContent, oldUnCleanContent, filePath, lineTmp, columnTmp)
+            if newKey != None and newContent != None:
+                newFileContent = newFileContent + newKey
+                lastOffset = offset + stringCodeItem['codeLen']
+                encodeLog.append({
+                    'path': filePath,
+                    'line': lineTmp,
+                    'column': columnTmp,
+                    'oldContent': oldContent,
+                    'oldUnCleanContent': oldUnCleanContent,
+                    'key': newKey,
+                    'newContent': newContent
+                })
+            else:
+                newFileContent = newFileContent + oldUnCleanContent
         newFileContent = newFileContent + oldFileContent[lastOffset: len(oldFileContent)]
         return encodeLog, newFileContent, None
