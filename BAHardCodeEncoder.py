@@ -206,7 +206,7 @@ def __encodeAction(rootName, rootDir, outputFileHandler, logFileHandler, encoder
 				
 				if logFileHandler:
 					logString = json.dumps(logs)
-					logFileHandler.write(logString[1: len(logString) - 1])
+					logFileHandler.write(logString[1: len(logString) - 1] + ',')
 				
 				BAErrorUtil.printError(BAErrorGrade.success, 'Encoded: ' + filePath)
 			else:
@@ -266,6 +266,8 @@ def __encode(rootPath):
 	logFilePathHandler = open(logFilePath, 'w+')
 	logFilePathHandler.write('[')
 	__encodeAction('', rootPathTmp, defenitionFilePathHandler, logFilePathHandler, encoder, exceptionHelper)
+	logFilePathHandler.seek(logFilePathHandler.tell()-1, 0)
+	logFilePathHandler.truncate()
 	logFilePathHandler.write(']')
 	logFilePathHandler.close()
 	defenitionFilePathHandler.close()
